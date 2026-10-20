@@ -1,140 +1,53 @@
 
 import type { StudyTask } from "../../types/study";
 
-export type StudySubject =
-    | "python"
-    | "java"
-    | "javascript"
-    | "data-science"
-    | "general";
-
-export interface StudyTip {
-    subject: StudySubject;
-    tip: string;
-}
-
-const studyTips: Record<StudySubject, string[]> = {
-    python: [
-        "Practice Python by writing small programs and tracing how variables change.",
-        "Learn lists, dictionaries, loops, and functions by building mini-projects.",
-        "Solve one Python problem daily and explain your solution in your own words.",
-    ],
-    java: [
-        "Practice Java with variables, loops, methods, and small programs.",
-        "Understand object-oriented programming through classes and objects.",
-        "Practice arrays, strings, and data structures before advancing to trees.",
-    ],
-    javascript: [
-        "Learn variables, functions, arrays, and objects through small projects.",
-        "Practice asynchronous JavaScript with promises and async/await.",
-        "Build interactive web pages to strengthen your JavaScript fundamentals.",
-    ],
-    "data-science": [
-        "Practice data analysis with Python, Pandas, and real-world datasets.",
-        "Learn statistics before moving to advanced machine learning algorithms.",
-        "Visualize your data and explain the patterns you discover.",
-    ],
-    general: [
-        "Break your study session into focused blocks with short breaks.",
-        "Use active recall instead of only rereading your notes.",
-        "Review difficult topics regularly and practice with questions.",
-    ],
-};
-
-export function getStudyTip(
-    subject: string = "general"
-): StudyTip {
-    const normalized = subject.toLowerCase().trim();
-
-    const validSubjects: StudySubject[] = [
-        "python",
-        "java",
-        "javascript",
-        "data-science",
-        "general",
-    ];
-
-    const selectedSubject: StudySubject =
-        validSubjects.includes(normalized as StudySubject)
-            ? (normalized as StudySubject)
-            : "general";
-
-    const tips = studyTips[selectedSubject];
-    const tip = tips[Math.floor(Math.random() * tips.length)];
-
-    return {
-        subject: selectedSubject,
-        tip,
+export function getStudyTip(subject: string): string {
+    const tips: Record<string, string> = {
+        python: "Practice Python by writing small programs every day.",
+        java: "Practice Java classes, objects, and data structures.",
+        mathematics: "Solve problems step by step and review your mistakes.",
+        dsa: "Practice one data structure or algorithm at a time.",
     };
+
+    return (
+        tips[subject.toLowerCase()] ??
+        `Study ${subject} in short sessions and practice with examples.`
+    );
 }
 
-export function getStudyPlan(
-    subject: string,
-    minutes: number = 30
-): string[] {
-    const safeMinutes = Number.isFinite(minutes)
-        ? Math.max(5, Math.min(240, Math.floor(minutes)))
-        : 30;
-
-    const firstBlock = Math.floor(safeMinutes * 0.6);
-    const secondBlock = Math.floor(safeMinutes * 0.3);
-    const reviewBlock = safeMinutes - firstBlock - secondBlock;
-
+export function getStudyPlan(subject: string): string[] {
     return [
-        `${firstBlock} minutes: Learn the fundamentals of ${subject}.`,
-        `${secondBlock} minutes: Solve practice questions about ${subject}.`,
-        `${reviewBlock} minutes: Review mistakes and summarize what you learned.`,
+        `Review the fundamentals of ${subject}.`,
+        `Practice ${subject} with a small exercise.`,
+        `Test your understanding and review mistakes.`,
     ];
 }
 
-/**
- * Routes a study request to the existing command handler.
- * Keep this signature compatible with the existing application.
- */
 export function executeStudyCommand(
     request: string,
-    tasks: StudyTask[]
-) {
+    tasks: StudyTask[],
+): string {
     const normalized = request.toLowerCase();
 
-    if (
-        normalized.includes("tip") ||
-        normalized.includes("advice")
-    ) {
-        const subject = detectSubject(normalized);
-        return getStudyTip(subject);
+    if (normalized.includes("tip")) {
+        return getStudyTip(request.replace(/tip/gi, "").trim() || "Python");
     }
 
-    if (
-        normalized.includes("plan") ||
-        normalized.includes("schedule")
-    ) {
-        const subject = detectSubject(normalized);
-        return getStudyPlan(subject, 30);
+    if (normalized.includes("plan")) {
+        return getStudyPlan(
+            request.replace(/plan/gi, "").trim() || "Python",
+        ).join("\n");
     }
 
-    return {
-        message:
-            "Try asking for a study tip or a study plan for Python, Java, JavaScript, or Data Science.",
-        tasks,
-    };
-}
+    if (normalized.includes("task") || normalized.includes("todo")) {
+        if (tasks.length === 0) {
+            return "You have no study tasks yet. Add a task to get started.";
+        }
 
-function detectSubject(request: string): string {
-    if (request.includes("python")) return "python";
-    if (request.includes("java")) return "java";
-    if (
-        request.includes("javascript") ||
-        request.includes("js")
-    ) {
-        return "javascript";
-    }
-    if (
-        request.includes("data science") ||
-        request.includes("data-science")
-    ) {
-        return "data-science";
+        return tasks
+            .map((task, index) => `${index + 1}. ${JSON.stringify(task)}`)
+            .join("\n");
     }
 
-    return "general";
+    return "I can help with study tips, study plans, and your study tasks. Try asking for a Python tip or a study plan.";
 }
