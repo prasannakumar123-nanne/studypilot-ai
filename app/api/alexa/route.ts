@@ -1,13 +1,22 @@
+
 import { NextRequest, NextResponse } from "next/server";
 
-type AlexaRequest = {
+type AlexaSlot = {
+    value?: string;
+};
+
+type AlexaRequestBody = {
     version?: string;
     session?: {
-        application?: { applicationId?: string };
+        application?: {
+            applicationId?: string;
+        };
     };
     context?: {
         System?: {
-            application?: { applicationId?: string };
+            application?: {
+                applicationId?: string;
+            };
         };
     };
     request?: {
@@ -15,12 +24,15 @@ type AlexaRequest = {
         requestId?: string;
         intent?: {
             name?: string;
-            slots?: Record<string, { value?: string }>;
+            slots?: Record<string, AlexaSlot>;
         };
     };
 };
 
-function alexaResponse(text: string, shouldEndSession = true) {
+function alexaResponse(
+    text: string,
+    shouldEndSession = true
+) {
     return NextResponse.json({
         version: "1.0",
         response: {
@@ -33,11 +45,28 @@ function alexaResponse(text: string, shouldEndSession = true) {
     });
 }
 
+function getSubject(body: AlexaRequestBody): string {
+    const value =
+        body.request?.intent?.slots?.subject?.value?.trim();
+
+    return value || "your studies";
+}
+
+export async function GET() {
+    return NextResponse.json({
+        service: "StudyPilot Study Coach",
+        project: "StudyPilot AI",
+        status: "online",
+        endpoint: "/api/alexa",
+        message: "The endpoint is available. Alexa should send POST requests.",
+    });
+}
+
 export async function POST(req: NextRequest) {
     try {
-        const body = (await req.json()) as AlexaRequest;
+        const body = (await req.json()) as AlexaRequestBody;
 
-        // Confirm that this request belongs to your configured Alexa skill.
+        // Check the Alexa skill ID.
         const expectedSkillId = process.env.ALEXA_SKILL_ID;
 
         const actualSkillId =
@@ -58,66 +87,86 @@ export async function POST(req: NextRequest) {
         const requestType = body.request?.type;
         const intentName = body.request?.intent?.name;
 
+        // Alexa launch request.
         if (requestType === "LaunchRequest") {
             return alexaResponse(
-                "Welcome to StudyPilot AI! You can ask for a study tip or a study plan.",
+                "Welcome to StudyPilot Study Coach, your personal study coach. " +
+                "You can ask me for a study tip or a study plan. " +
+                "For example, say: give me a study tip for Python.",
                 false
             );
         }
 
+        // Alexa intent requests.
         if (requestType === "IntentRequest") {
-            if (intentName === "StudyTipIntent") {
-                const subject =
-                    body.request?.intent?.slots?.subject?.value?.trim() ||
-                    "your studies";
+            switch (intentName) {
+                case "StudyTipIntent": {
+                    const subject = getSubject(body);
 
-                return alexaResponse(
-                    `Here is your StudyPilot tip for ${subject}: study in focused sessions, take short breaks, and test yourself without looking at your notes.`
-                );
-            }
+                    return alexaResponse(
+                        `Here is your study tip for ${subject}. ` +
+                        "Study in focused sessions. " +
+                        "After learning a concept, close your notes and explain it from memory. " +
+                        "Then solve practice questions and review difficult topics again tomorrow."
+                    );
+                }
 
-            if (intentName === "StudyPlanIntent") {
-                const subject =
-                    body.request?.intent?.slots?.subject?.value?.trim() ||
-                    "your subject";
+                case "StudyPlanIntent": {
+                    const subject = getSubject(body);
 
-                return alexaResponse(
-                    `Here is a simple plan for ${subject}: spend 25 minutes learning, 5 minutes reviewing from memory, and 10 minutes solving practice questions. Repeat the cycle as needed.`
-                );
-            }
+                    return alexaResponse(
+                        `Here is a study plan for ${subject}. ` +
+                        "First, spend 25 minutes learning one topic. " +
+                        "Take a 5-minute break. " +
+                        "Next, spend 20 minutes solving practice questions. " +
+                        "Finally, spend 10 minutes reviewing what you learned."
+                    );
+                }
 
-            if (intentName === "AMAZON.HelpIntent") {
-                return alexaResponse(
-                    "You can say, give me a study tip for Python, or create a study plan for mathematics.",
-                    false
-                );
-            }
+                case "AMAZON.HelpIntent":
+                    return alexaResponse(
+                        "You are using StudyPilot Study Coach. " +
+                        "Say: give me a study tip for Python, " +
+                        "or create a study plan for mathematics.",
+                        false
+                    );
 
-            if (
-                intentName === "AMAZON.StopIntent" ||
-                intentName === "AMAZON.CancelIntent"
-            ) {
-                return alexaResponse("Good luck with your studies. Goodbye!");
-            }
+                case "AMAZON.StopIntent":
+                case "AMAZON.CancelIntent":
+                    return alexaResponse(
+                        "Good luck with your studies. Keep learning and practicing. Goodbye!"
+                    );
 
-            if (intentName === "AMAZON.FallbackIntent") {
-                return alexaResponse(
-                    "Sorry, I didn't understand. Try asking for a study tip or a study plan.",
-                    false
-                );
+                case "AMAZON.FallbackIntent":
+                    return alexaResponse(
+                        "Sorry, I did not understand. " +
+                        "Try asking for a study tip or a study plan.",
+                        false
+                    );
+
+                default:
+                    return alexaResponse(
+                        "I can help you study. Please ask for a study tip or a study plan.",
+                        false
+                    );
             }
         }
 
+        // Alexa session-ended request.
         if (requestType === "SessionEndedRequest") {
-            return NextResponse.json({ version: "1.0" });
+            return NextResponse.json({
+                version: "1.0",
+            });
         }
 
         return alexaResponse(
-            "Sorry, I couldn't process that request. Please try again."
+            "Sorry, I could not process that request. Please try again."
         );
-    } catch {
+    } catch (error) {
+        console.error("StudyPilot Study Coach error:", error);
+
         return NextResponse.json(
-            { error: "Invalid request" },
+            { error: "Invalid Alexa request body" },
             { status: 400 }
         );
     }
