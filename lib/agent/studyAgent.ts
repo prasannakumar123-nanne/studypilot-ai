@@ -1,11 +1,37 @@
-﻿import { executeStudyCommand } from "../tools/studyTools";
-import type { StudyTask } from "../../types/study";
+﻿
+import {
+  getStudyTip,
+  getStudyPlan,
+  type StudyTip,
+} from "../tools/studyTools";
+
+export interface StudyAgentResponse {
+  success: boolean;
+  message: string;
+  tip?: StudyTip;
+  plan?: string[];
+}
 
 export function runStudyAgent(
-  request: string,
-  tasks: StudyTask[],
-) {
-  // This prototype routes requests using predefined rules.
-  // It does not call a live AI model.
-  return executeStudyCommand(request, tasks);
+  subject: string = "general",
+  minutes: number = 30
+): StudyAgentResponse {
+  try {
+    const tip = getStudyTip(subject);
+    const plan = getStudyPlan(subject, minutes);
+
+    return {
+      success: true,
+      message: `Here is your StudyPilot AI study guidance for ${tip.subject}.`,
+      tip,
+      plan,
+    };
+  } catch {
+    return {
+      success: false,
+      message: "Unable to generate study guidance. Please try again.",
+    };
+  }
 }
+
+export { getStudyTip, getStudyPlan };
